@@ -11,7 +11,7 @@ export const getAllUsers = async (req, res) => {
       return res.status(403).json({ message: 'Admin access required' });
     }
 
-    const users = await User.find({ role: 'user' })
+    const users = await User.find({})
       .select('-passwordHash')
       .sort({ createdAt: -1 });
 
@@ -44,7 +44,7 @@ export const getUserById = async (req, res) => {
     }
 
     const user = await User.findById(id).select('-passwordHash');
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -73,7 +73,7 @@ export const deleteUser = async (req, res) => {
     }
 
     const user = await User.findById(id);
-    
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

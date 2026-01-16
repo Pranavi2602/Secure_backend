@@ -4,18 +4,18 @@ import { sendNewTicketNotification, sendTicketConfirmation, sendAdminReplyNotifi
 
 export const createTicket = async (req, res) => {
   try {
-    const { category, title, description, preferredVisitAt } = req.body;
+    const { category, title, description, preferredVisitAt, address, outletName, location } = req.body;
     const userId = req.user._id;
 
-    // Basic required fields (location will come from the user profile)
-    if (!category || !title || !description) {
-      return res.status(400).json({ message: 'Please provide category, title and description' });
+    // Basic required fields
+    if (!category || !title || !description || !address || !outletName || !location) {
+      return res.status(400).json({ message: 'Please provide category, title, description, address, outlet name and location' });
     }
 
-    // Get user to read saved location from registration
+    // Get user for email notifications
     const user = await User.findById(userId);
-    if (!user || !user.location || user.location.lat === undefined || user.location.lng === undefined) {
-      return res.status(400).json({ message: 'User location is not set. Please update your profile.' });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
     // Get image URLs from uploaded files (Cloudinary or local)
@@ -52,9 +52,11 @@ export const createTicket = async (req, res) => {
       description,
       images,
       preferredVisitAt: preferredVisitAt || null,
+      address,
+      outletName,
       location: {
-        lat: user.location.lat,
-        lng: user.location.lng
+        lat: location.lat,
+        lng: location.lng
       }
     });
 

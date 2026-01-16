@@ -74,6 +74,16 @@ const ticketSchema = new mongoose.Schema({
       required: true
     }
   },
+  address: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  outletName: {
+    type: String,
+    required: true,
+    trim: true
+  },
   viewedByAdmin: {
     type: Boolean,
     default: false

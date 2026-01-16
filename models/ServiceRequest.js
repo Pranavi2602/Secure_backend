@@ -73,6 +73,16 @@ const serviceRequestSchema = new mongoose.Schema({
       type: Number,
       required: true
     }
+  },
+  address: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  outletName: {
+    type: String,
+    required: true,
+    trim: true
   }
 }, {
   timestamps: true

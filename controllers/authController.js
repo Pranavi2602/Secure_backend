@@ -90,6 +90,7 @@ export const login = async (req, res) => {
         email: user.email,
         role: user.role,
         companyName: user.companyName,
+        outlets: user.outlets || []
       },
     });
 
@@ -102,9 +103,9 @@ export const login = async (req, res) => {
 // ---------------- REGISTER ----------------
 export const register = async (req, res) => {
   try {
-    const { name, companyName, phone, email, password, address, lat, lng } = req.body;
+    const { name, companyName, phone, email, password, outlets } = req.body;
 
-    if (!name || !companyName || !phone || !email || !password || !address) {
+    if (!name || !companyName || !phone || !email || !password || !outlets || !Array.isArray(outlets) || outlets.length === 0) {
       return res.status(400).json({ message: "Please provide all required fields" });
     }
 
@@ -116,10 +117,8 @@ export const register = async (req, res) => {
     if (existingPhone)
       return res.status(400).json({ message: "User already exists with this phone number" });
 
-    const location =
-      lat && lng
-        ? { lat: parseFloat(lat), lng: parseFloat(lng) }
-        : { lat: 0, lng: 0 };
+    // Extract first outlet for backward compatibility if needed, or just focus on outlets
+    const primaryOutlet = outlets[0];
 
     const user = await User.create({
       name,
@@ -127,8 +126,19 @@ export const register = async (req, res) => {
       phone,
       email: email.toLowerCase(),
       passwordHash: password,
-      address,
-      location,
+      address: primaryOutlet.address,
+      location: {
+        lat: parseFloat(primaryOutlet.lat),
+        lng: parseFloat(primaryOutlet.lng)
+      },
+      outlets: outlets.map(o => ({
+        outletName: o.outletName,
+        address: o.address,
+        location: {
+          lat: parseFloat(o.lat !== undefined ? o.lat : o.location?.lat),
+          lng: parseFloat(o.lng !== undefined ? o.lng : o.location?.lng)
+        }
+      }))
     });
 
     const token = generateToken(user._id);
@@ -141,6 +151,7 @@ export const register = async (req, res) => {
         email: user.email,
         role: user.role,
         companyName: user.companyName,
+        outlets: user.outlets || []
       },
     });
 
@@ -163,7 +174,7 @@ export const getMe = async (req, res) => {
 // ---------------- UPDATE PROFILE ----------------
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phone, companyName, address, location } = req.body;
+    const { name, phone, companyName, address, location, outlets } = req.body;
     const userId = req.user._id;
 
     const user = await User.findById(userId);
@@ -182,12 +193,35 @@ export const updateProfile = async (req, res) => {
       user.phone = phone.trim();
     }
     if (companyName) user.companyName = companyName;
-    if (address) user.address = address;
-    if (location && location.lat !== undefined && location.lng !== undefined) {
-      user.location = {
-        lat: parseFloat(location.lat),
-        lng: parseFloat(location.lng)
-      };
+
+    if (outlets && Array.isArray(outlets)) {
+      user.outlets = outlets.map(o => ({
+        outletName: o.outletName,
+        address: o.address,
+        location: {
+          lat: parseFloat(o.lat !== undefined ? o.lat : o.location?.lat),
+          lng: parseFloat(o.lng !== undefined ? o.lng : o.location?.lng)
+        }
+      }));
+
+      // Sync primary address/location with first outlet if present
+      if (outlets.length > 0) {
+        const first = outlets[0];
+        user.address = first.address;
+        user.location = {
+          lat: parseFloat(first.lat !== undefined ? first.lat : first.location?.lat),
+          lng: parseFloat(first.lng !== undefined ? first.lng : first.location?.lng)
+        };
+      }
+    } else {
+      // Fallback to legacy address/location update if provided without outlets
+      if (address) user.address = address;
+      if (location && location.lat !== undefined && location.lng !== undefined) {
+        user.location = {
+          lat: parseFloat(location.lat),
+          lng: parseFloat(location.lng)
+        };
+      }
     }
 
     await user.save();
@@ -210,18 +244,18 @@ export const forgotPassword = async (req, res) => {
     }
 
     const user = await User.findOne({ email: email.toLowerCase() });
-    
+
     // Always return success message to prevent email enumeration
     if (!user) {
-      return res.json({ 
-        message: "If that email exists in our system, a password reset link has been sent." 
+      return res.json({
+        message: "If that email exists in our system, a password reset link has been sent."
       });
     }
 
     // Don't allow password reset for admin accounts
     if (user.role === 'admin') {
-      return res.status(403).json({ 
-        message: "Password reset is not available for admin accounts. Please contact system administrator." 
+      return res.status(403).json({
+        message: "Password reset is not available for admin accounts. Please contact system administrator."
       });
     }
 
@@ -283,8 +317,8 @@ export const forgotPassword = async (req, res) => {
 
     try {
       await sendEmail(user.email, subject, html);
-      return res.json({ 
-        message: "If that email exists in our system, a password reset link has been sent." 
+      return res.json({
+        message: "If that email exists in our system, a password reset link has been sent."
       });
     } catch (error) {
       console.error("Email send error:", error);
@@ -292,9 +326,9 @@ export const forgotPassword = async (req, res) => {
       user.resetPasswordToken = undefined;
       user.resetPasswordExpire = undefined;
       await user.save({ validateBeforeSave: false });
-      
-      return res.status(500).json({ 
-        message: "Error sending email. Please try again later." 
+
+      return res.status(500).json({
+        message: "Error sending email. Please try again later."
       });
     }
 

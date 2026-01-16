@@ -161,6 +161,32 @@ export const register = async (req, res) => {
   }
 };
 
+// ---------------- CHECK AVAILABILITY ----------------
+export const checkAvailability = async (req, res) => {
+  try {
+    const { email, phone } = req.body;
+
+    if (email) {
+      const existingEmail = await User.findOne({ email: email.toLowerCase() });
+      if (existingEmail) {
+        return res.status(400).json({ message: "User already exists with this email" });
+      }
+    }
+
+    if (phone) {
+      const existingPhone = await User.findOne({ phone: phone.trim() });
+      if (existingPhone) {
+        return res.status(400).json({ message: "User already exists with this phone number" });
+      }
+    }
+
+    return res.status(200).json({ message: "Available" });
+  } catch (err) {
+    console.error("Check availability error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 // ---------------- GET ME ----------------
 export const getMe = async (req, res) => {
   try {
